@@ -1,0 +1,49 @@
+name: Skynet Flight Ops API CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: airman
+          POSTGRES_PASSWORD: airman_password
+          POSTGRES_DB: skynet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install pytest httpx psycopg2-binary
+
+    - name: Run automated test suite
+      env:
+        DATABASE_URL: postgresql://airman:airman_password@localhost:5432/skynet
+        SECRET_KEY: test_secret_key_for_ci_pipeline_only
+      run: |
+        pytest tests/ -v
